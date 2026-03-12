@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PulseWear Labs — Feedback Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Clash+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Clash Display fallback if CDN is slow ── */
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap');
+
+:root {
+  --bg:       #07080d;
+  --s1:       #0c0d15;
+  --s2:       #10111a;
+  --border:   rgba(255,255,255,.07);
+  --border2:  rgba(255,255,255,.04);
+  --accent:   #00f0a0;
+  --red:      #ff5470;
+  --amber:    #ffc044;
+  --blue:     #4d9fff;
+  --purple:   #9d7fff;
+  --text:     #e2e3f0;
+  --muted:    #4a4b63;
+  --muted2:   #2e2f42;
+  --mono:     'IBM Plex Mono', monospace;
+  --display:  'Clash Display', 'Syne', sans-serif;
+  --ease:     cubic-bezier(.16,1,.3,1);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Noise texture overlay ── */
+body::after {
+  content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px;
+  opacity: .4;
+}
+
+/* ── Ambient glows ── */
+.glow {
+  position:fixed;border-radius:50%;pointer-events:none;z-index:0;
+  filter:blur(100px);opacity:.18;
+}
+.g1{width:700px;height:700px;background:var(--purple);top:-300px;left:-200px;}
+.g2{width:500px;height:500px;background:var(--accent);bottom:-200px;right:-100px;}
+.g3{width:300px;height:300px;background:var(--blue);top:40%;left:60%;}
+
+/* ── Layout ── */
+.page { position:relative;z-index:1; }
+
+/* ══════════════════════════════════════
+   HEADER
+══════════════════════════════════════ */
+.header {
+  max-width:1100px;margin:0 auto;padding:60px 32px 0;
+  display:grid;grid-template-columns:1fr auto;align-items:start;gap:24px;
+}
+@media(max-width:700px){.header{grid-template-columns:1fr;padding:40px 20px 0;}}
+
+.header-left {}
+.eyebrow {
+  font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.pulse {
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 0 rgba(0,240,160,.4);
+  animation:pulse 2.4s infinite;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(0,240,160,.4)}
+  70%{box-shadow:0 0 0 10px rgba(0,240,160,0)}
+  100%{box-shadow:0 0 0 0 rgba(0,240,160,0)}
+}
+
+h1 {
+  font-family:var(--display);
+  font-size:clamp(36px,6vw,64px);
+  font-weight:700;line-height:.95;letter-spacing:-.03em;
+  margin-bottom:16px;
+}
+h1 .hl { color:var(--accent); }
+.tagline {
+  font-size:12px;color:var(--muted);line-height:1.8;
+  max-width:520px;
+}
+
+/* ── Global stats pills ── */
+.stat-pills {
+  display:flex;flex-wrap:wrap;gap:8px;
+  margin-top:32px;
+}
+.stat-pill {
+  display:flex;align-items:center;gap:8px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:100px;padding:7px 14px;
+  font-size:11px;
+  opacity:0;transform:translateY(6px);
+  animation:fadeUp .5s var(--ease) both;
+}
+.stat-pill:nth-child(1){animation-delay:.05s}
+.stat-pill:nth-child(2){animation-delay:.1s}
+.stat-pill:nth-child(3){animation-delay:.15s}
+.stat-pill:nth-child(4){animation-delay:.2s}
+.stat-pill:nth-child(5){animation-delay:.25s}
+@keyframes fadeUp{to{opacity:1;transform:none}}
+
+.pill-dot{width:6px;height:6px;border-radius:50%;}
+.pill-val{font-weight:500;color:var(--text);}
+.pill-lbl{color:var(--muted);}
+
+/* ── Breakdown bars (header right) ── */
+.breakdown-box {
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:14px;padding:20px;min-width:220px;
+  opacity:0;animation:fadeUp .6s var(--ease) .3s both;
+}
+@media(max-width:700px){.breakdown-box{display:none;}}
+.bb-title{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.bb-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.bb-row:last-child{margin-bottom:0;}
+.bb-label{font-size:10px;color:var(--muted);flex-shrink:0;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bb-track{flex:1;height:3px;background:var(--muted2);border-radius:99px;overflow:hidden;}
+.bb-fill{height:100%;border-radius:99px;background:var(--purple);}
+.bb-val{font-size:10px;color:var(--muted);width:32px;text-align:right;flex-shrink:0;}
+
+/* ══════════════════════════════════════
+   MAIN CONTENT AREA
+══════════════════════════════════════ */
+.main {
+  max-width:1100px;margin:0 auto;padding:48px 32px 100px;
+}
+@media(max-width:700px){.main{padding:32px 20px 80px;}}
+
+/* ── Filter bar ── */
+.filter-bar {
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  margin-bottom:28px;padding-bottom:20px;
+  border-bottom:1px solid var(--border2);
+}
+.filter-label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:4px;}
+
+.filter-btn {
+  background:transparent;border:1px solid var(--border);
+  border-radius:100px;padding:5px 13px;
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  cursor:pointer;transition:all .18s;
+}
+.filter-btn:hover{border-color:var(--purple);color:var(--text);}
+.filter-btn.active{background:var(--purple);border-color:var(--purple);color:#fff;}
+
+.search-wrap{margin-left:auto;position:relative;}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);}
+#search {
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:8px;padding:7px 12px 7px 32px;
+  font-family:var(--mono);font-size:11px;color:var(--text);
+  width:200px;outline:none;transition:border-color .2s;
+}
+#search:focus{border-color:var(--purple);}
+#search::placeholder{color:var(--muted);}
+
+/* ── Sort ── */
+.sort-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:10px;color:var(--muted);}
+.sort-btn{background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;transition:all .15s;}
+.sort-btn:hover{color:var(--text);}
+.sort-btn.active{color:var(--accent);font-weight:500;}
+
+/* ── Cluster grid ── */
+.cluster-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+  gap:16px;
+}
+@media(max-width:520px){.cluster-grid{grid-template-columns:1fr;}}
+
+/* ── Cluster card ── */
+.cluster-card {
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+  cursor:pointer;
+  transition:border-color .2s, transform .2s var(--ease), box-shadow .2s;
+  opacity:0;transform:translateY(12px);
+  animation:fadeUp .4s var(--ease) both;
+}
+.cluster-card:hover {
+  border-color:rgba(157,127,255,.35);
+  transform:translateY(-2px);
+  box-shadow:0 12px 40px rgba(0,0,0,.4);
+}
+
+.cc-top {
+  padding:18px 20px 14px;
+  border-bottom:1px solid var(--border2);
+}
+.cc-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.cc-id{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+.cc-size{font-size:10px;color:var(--muted);}
+.cc-desc{
+  font-family:var(--display);font-size:14px;font-weight:600;
+  line-height:1.4;color:var(--text);
+}
+
+/* ── Sentiment bar ── */
+.sent-row{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 20px;border-bottom:1px solid var(--border2);
+}
+.sent-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex-shrink:0;}
+.sent-track{flex:1;height:4px;background:var(--muted2);border-radius:99px;overflow:hidden;}
+.sent-fill{height:100%;border-radius:99px;transition:width .6s var(--ease);}
+.sent-pct{font-size:10px;flex-shrink:0;width:68px;text-align:right;}
+
+/* ── Top issues ── */
+.top-issues{padding:12px 20px 16px;}
+.ti-header{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+.ti-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;}
+.ti-row + .ti-row{border-top:1px solid var(--border2);}
+.ti-rank{font-size:9px;color:var(--muted);width:14px;flex-shrink:0;padding-top:2px;}
+.ti-text{font-size:11px;line-height:1.55;flex:1;color:var(--text);}
+.ti-count{font-size:9px;color:var(--muted);flex-shrink:0;white-space:nowrap;padding-top:2px;}
+
+.cc-footer{
+  padding:10px 20px;border-top:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;color:var(--muted);
+  background:rgba(0,0,0,.15);
+}
+.cc-footer span{display:flex;align-items:center;gap:5px;}
+.cc-footer svg{opacity:.5;}
+
+/* ── No results ── */
+#no-results{display:none;padding:60px 0;text-align:center;color:var(--muted);font-size:12px;}
+#no-results.visible{display:block;}
+
+/* ══════════════════════════════════════
+   DRAWER (cluster detail)
+══════════════════════════════════════ */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
+  backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.open{opacity:1;pointer-events:all;}
+
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(640px,100vw);
+  background:var(--s2);border-left:1px solid var(--border);
+  z-index:101;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .35s var(--ease);
+  overflow:hidden;
+}
+.drawer.open{transform:none;}
+
+.drawer-head{
+  padding:24px 28px 20px;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.drawer-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.drawer-id{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+.close-btn{
+  background:var(--muted2);border:none;border-radius:50%;
+  width:28px;height:28px;cursor:pointer;color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;flex-shrink:0;
+}
+.close-btn:hover{background:var(--border);}
+.drawer-desc{
+  font-family:var(--display);font-size:18px;font-weight:600;
+  line-height:1.35;margin-bottom:14px;
+}
+.drawer-stats{display:flex;flex-wrap:wrap;gap:8px;}
+.d-stat{
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:8px;padding:6px 12px;font-size:10px;
+}
+.d-stat-val{font-weight:500;color:var(--text);}
+.d-stat-lbl{color:var(--muted);margin-left:4px;}
+
+/* Drawer filters */
+.drawer-filters{
+  padding:14px 28px;border-bottom:1px solid var(--border);
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  flex-shrink:0;
+}
+.df-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.df-btn{
+  background:transparent;border:1px solid var(--border);
+  border-radius:100px;padding:4px 11px;
+  font-family:var(--mono);font-size:10px;color:var(--muted);
+  cursor:pointer;transition:all .15s;
+}
+.df-btn:hover{border-color:var(--accent);color:var(--text);}
+.df-btn.active{background:var(--accent);border-color:var(--accent);color:#000;}
+
+.drawer-search-wrap{margin-left:auto;position:relative;}
+.drawer-search-wrap svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);}
+#drawer-search{
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:7px;padding:5px 10px 5px 28px;
+  font-family:var(--mono);font-size:10px;color:var(--text);
+  width:160px;outline:none;transition:border-color .2s;
+}
+#drawer-search:focus{border-color:var(--accent);}
+#drawer-search::placeholder{color:var(--muted);}
+
+/* Drawer list */
+.drawer-body{flex:1;overflow-y:auto;padding:0 28px 28px;}
+.drawer-body::-webkit-scrollbar{width:4px;}
+.drawer-body::-webkit-scrollbar-track{background:transparent;}
+.drawer-body::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:99px;}
+
+.drawer-count{
+  font-size:10px;color:var(--muted);
+  padding:16px 0 10px;border-bottom:1px solid var(--border2);
+  margin-bottom:0;
+}
+
+.feedback-row{
+  border-bottom:1px solid var(--border2);
+  padding:14px 0;
+  animation:fadeUp .2s var(--ease) both;
+}
+.fr-text{font-size:12px;line-height:1.65;color:var(--text);margin-bottom:8px;}
+.fr-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.fr-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:100px;font-size:9px;letter-spacing:.04em;
+}
+.fr-pos{background:rgba(0,240,160,.1);color:var(--accent);border:1px solid rgba(0,240,160,.2);}
+.fr-neg{background:rgba(255,84,112,.1);color:var(--red);border:1px solid rgba(255,84,112,.2);}
+.fr-channel{background:rgba(77,159,255,.08);color:var(--blue);border:1px solid rgba(77,159,255,.15);}
+.fr-platform{background:rgba(255,192,68,.08);color:var(--amber);border:1px solid rgba(255,192,68,.15);}
+.fr-score{color:var(--muted);font-size:9px;margin-left:auto;}
+
+.load-more{
+  width:100%;margin-top:16px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:9px;padding:10px;
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  cursor:pointer;transition:all .18s;text-align:center;
+}
+.load-more:hover{border-color:var(--purple);color:var(--text);}
+.load-more.hidden{display:none;}
+
+/* ── Loading state ── */
+#loading{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:60vh;gap:16px;
+  font-size:11px;color:var(--muted);
+}
+.loader-ring{
+  width:40px;height:40px;border-radius:50%;
+  border:2px solid var(--border);
+  border-top-color:var(--accent);
+  animation:spin .9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#error-state{
+  display:none;text-align:center;padding:80px 32px;
+  font-size:12px;color:var(--muted);line-height:1.8;
+}
+#error-state.visible{display:block;}
+#error-state strong{display:block;color:var(--red);font-size:14px;margin-bottom:8px;}
+
+</style>
+</head>
+<body>
+<div class="glow g1"></div>
+<div class="glow g2"></div>
+<div class="glow g3"></div>
+
+<div class="page">
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="loader-ring"></div>
+    <span>Loading feedback data…</span>
+  </div>
+
+  <!-- Error -->
+  <div id="error-state">
+    <strong>Could not load feedback_data.json</strong>
+    Make sure <code>feedback_data.json</code> is in the same folder as <code>index.html</code>.<br>
+    If running locally, use a local server: <code>python -m http.server 8080</code>
+  </div>
+
+  <!-- App (hidden until data loads) -->
+  <div id="app" style="display:none;">
+
+    <div class="header">
+      <div class="header-left">
+        <div class="eyebrow"><span class="pulse"></span>CS 399 · Innovating with AI · PulseWear Labs</div>
+        <h1>Feedback<br><span class="hl">Intelligence</span></h1>
+        <p class="tagline">Sentiment analysis + semantic clustering across 20,000 synthetic user feedback records — powered by HuggingFace transformers.</p>
+        <div class="stat-pills" id="stat-pills"></div>
+      </div>
+      <div class="breakdown-box" id="channel-box">
+        <div class="bb-title">Feedback by channel</div>
+        <div id="channel-bars"></div>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <span class="filter-label">Sentiment</span>
+        <button class="filter-btn active" data-filter="all"   onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn"        data-filter="pos"   onclick="setFilter('pos',this)">Positive</button>
+        <button class="filter-btn"        data-filter="neg"   onclick="setFilter('neg',this)">Negative</button>
+        <div class="search-wrap">
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <input type="text" id="search" placeholder="Search clusters…" oninput="renderCards()"/>
+        </div>
+      </div>
+
+      <div class="sort-row">
+        <span>Sort by:</span>
+        <button class="sort-btn active" onclick="setSort('size',this)">Volume</button>
+        <button class="sort-btn"        onclick="setSort('pos',this)">Most positive</button>
+        <button class="sort-btn"        onclick="setSort('neg',this)">Most negative</button>
+      </div>
+
+      <div class="cluster-grid" id="cluster-grid"></div>
+      <div id="no-results">No clusters match your filter.</div>
+    </div>
+
+  </div><!-- /app -->
+
+</div><!-- /page -->
+
+<!-- Overlay + Drawer -->
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="drawer-top">
+      <span class="drawer-id" id="d-id"></span>
+      <button class="close-btn" onclick="closeDrawer()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="drawer-desc" id="d-desc"></div>
+    <div class="drawer-stats" id="d-stats"></div>
+  </div>
+  <div class="drawer-filters">
+    <span class="df-label">Filter</span>
+    <button class="df-btn active" onclick="setDrawerFilter('all',this)">All</button>
+    <button class="df-btn" onclick="setDrawerFilter('POSITIVE',this)">Positive</button>
+    <button class="df-btn" onclick="setDrawerFilter('NEGATIVE',this)">Negative</button>
+    <div class="drawer-search-wrap">
+      <svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="color:var(--muted)"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <input type="text" id="drawer-search" placeholder="Search feedback…" oninput="renderDrawer()"/>
+    </div>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-count" id="d-count"></div>
+    <div id="d-list"></div>
+    <button class="load-more hidden" id="load-more-btn" onclick="loadMore()">Load more</button>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+let DATA = null;
+let cardFilter = 'all';
+let cardSort   = 'size';
+let drawerCluster = null;
+let drawerFilter  = 'all';
+let drawerPage    = 0;
+const PAGE_SIZE   = 30;
+
+// ── Boot ──────────────────────────────────────────────────────
+fetch('feedback_data.json')
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(d => {
+    DATA = d;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    buildHeader();
+    renderCards();
+  })
+  .catch(e => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-state').classList.add('visible');
+    console.error(e);
+  });
+
+// ── Header ────────────────────────────────────────────────────
+function buildHeader() {
+  const pills = [
+    { val: DATA.total.toLocaleString(), lbl: 'records', color: 'var(--purple)' },
+    { val: DATA.positive.toLocaleString(), lbl: 'positive', color: 'var(--accent)' },
+    { val: DATA.negative.toLocaleString(), lbl: 'negative', color: 'var(--red)' },
+    { val: DATA.clusters.length, lbl: 'clusters', color: 'var(--blue)' },
+    { val: pct(DATA.positive, DATA.total) + '%', lbl: 'pos. rate', color: 'var(--amber)' },
+  ];
+  document.getElementById('stat-pills').innerHTML = pills.map(p => `
+    <div class="stat-pill">
+      <span class="pill-dot" style="background:${p.color}"></span>
+      <span class="pill-val">${p.val}</span>
+      <span class="pill-lbl">${p.lbl}</span>
+    </div>`).join('');
+
+  // Channel bars
+  if (DATA.channels) {
+    const max = Math.max(...Object.values(DATA.channels));
+    document.getElementById('channel-bars').innerHTML =
+      Object.entries(DATA.channels).map(([k,v]) => `
+        <div class="bb-row">
+          <span class="bb-label">${esc(k)}</span>
+          <div class="bb-track"><div class="bb-fill" style="width:${pct(v,max)}%"></div></div>
+          <span class="bb-val">${v.toLocaleString()}</span>
+        </div>`).join('');
+  }
+}
+
+// ── Card filter / sort ─────────────────────────────────────────
+function setFilter(f, btn) {
+  cardFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCards();
+}
+function setSort(s, btn) {
+  cardSort = s;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCards();
+}
+
+function renderCards() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  let clusters = [...DATA.clusters];
+
+  // Filter by sentiment threshold
+  if (cardFilter === 'pos') clusters = clusters.filter(c => c.pos_pct >= 50);
+  if (cardFilter === 'neg') clusters = clusters.filter(c => c.pos_pct < 50);
+
+  // Search
+  if (q) clusters = clusters.filter(c =>
+    c.description.toLowerCase().includes(q) ||
+    c.top_issues.some(i => i.text.toLowerCase().includes(q))
+  );
+
+  // Sort
+  if (cardSort === 'size') clusters.sort((a,b) => b.size - a.size);
+  if (cardSort === 'pos')  clusters.sort((a,b) => b.pos_pct - a.pos_pct);
+  if (cardSort === 'neg')  clusters.sort((a,b) => a.pos_pct - b.pos_pct);
+
+  const grid = document.getElementById('cluster-grid');
+  const noRes = document.getElementById('no-results');
+
+  if (!clusters.length) {
+    grid.innerHTML = '';
+    noRes.classList.add('visible');
+    return;
+  }
+  noRes.classList.remove('visible');
+
+  grid.innerHTML = clusters.map((c, i) => {
+    const col = sentColor(c.pos_pct);
+    const issues = c.top_issues.map((iss, idx) => `
+      <div class="ti-row">
+        <span class="ti-rank">${idx+1}.</span>
+        <span class="ti-text">${esc(iss.text)}</span>
+        <span class="ti-count">×${iss.count.toLocaleString()}</span>
+      </div>`).join('');
+
+    return `<div class="cluster-card" style="animation-delay:${i*35}ms" onclick="openDrawer(${c.id})">
+      <div class="cc-top">
+        <div class="cc-meta">
+          <span class="cc-id">Cluster ${c.id}</span>
+          <span class="cc-size">${c.size.toLocaleString()} items</span>
+        </div>
+        <div class="cc-desc">${esc(c.description)}</div>
+      </div>
+      <div class="sent-row">
+        <span class="sent-label">Sentiment</span>
+        <div class="sent-track"><div class="sent-fill" style="width:${c.pos_pct}%;background:${col}"></div></div>
+        <span class="sent-pct" style="color:${col}">${c.pos_pct}% pos.</span>
+      </div>
+      <div class="top-issues">
+        <div class="ti-header">Top 3 most repeated feedback</div>
+        ${issues}
+      </div>
+      <div class="cc-footer">
+        <span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2.5l1.5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Click to explore all ${c.size.toLocaleString()} feedback items
+        </span>
+        <span style="color:var(--purple)">→</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Drawer ────────────────────────────────────────────────────
+function openDrawer(clusterId) {
+  drawerCluster = DATA.clusters.find(c => c.id === clusterId);
+  drawerFilter  = 'all';
+  drawerPage    = 0;
+  document.getElementById('drawer-search').value = '';
+  document.querySelectorAll('.df-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.df-btn').classList.add('active');
+
+  // Header
+  document.getElementById('d-id').textContent = `Cluster ${drawerCluster.id}  ·  ${drawerCluster.size.toLocaleString()} items`;
+  document.getElementById('d-desc').textContent = drawerCluster.description;
+
+  // Stats row
+  const col = sentColor(drawerCluster.pos_pct);
+  const posCount = Math.round(drawerCluster.size * drawerCluster.pos_pct / 100);
+  document.getElementById('d-stats').innerHTML = `
+    <div class="d-stat"><span class="d-stat-val" style="color:${col}">${drawerCluster.pos_pct}%</span><span class="d-stat-lbl">positive</span></div>
+    <div class="d-stat"><span class="d-stat-val" style="color:var(--accent)">${posCount.toLocaleString()}</span><span class="d-stat-lbl">pos. items</span></div>
+    <div class="d-stat"><span class="d-stat-val" style="color:var(--red)">${(drawerCluster.size-posCount).toLocaleString()}</span><span class="d-stat-lbl">neg. items</span></div>`;
+
+  renderDrawer();
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function setDrawerFilter(f, btn) {
+  drawerFilter = f;
+  drawerPage   = 0;
+  document.querySelectorAll('.df-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDrawer();
+}
+
+function getDrawerItems() {
+  const q = document.getElementById('drawer-search').value.trim().toLowerCase();
+  let items = drawerCluster.items || [];
+  if (drawerFilter !== 'all') items = items.filter(i => i.sentiment_label === drawerFilter);
+  if (q) items = items.filter(i =>
+    i.feedback_text.toLowerCase().includes(q) ||
+    (i.channel||'').toLowerCase().includes(q) ||
+    (i.platform||'').toLowerCase().includes(q)
+  );
+  return items;
+}
+
+function renderDrawer() {
+  drawerPage = 0;
+  const items = getDrawerItems();
+  document.getElementById('d-count').textContent =
+    `${items.length.toLocaleString()} feedback item${items.length !== 1 ? 's' : ''}`;
+  renderDrawerPage(items, true);
+}
+
+function renderDrawerPage(items, reset) {
+  const list = document.getElementById('d-list');
+  if (reset) list.innerHTML = '';
+
+  const start = drawerPage * PAGE_SIZE;
+  const slice = items.slice(start, start + PAGE_SIZE);
+
+  slice.forEach((item, i) => {
+    const isPos = item.sentiment_label === 'POSITIVE';
+    const scorePct = Math.round((item.sentiment_score||0) * 100);
+    const row = document.createElement('div');
+    row.className = 'feedback-row';
+    row.style.animationDelay = (i * 20) + 'ms';
+    row.innerHTML = `
+      <div class="fr-text">${esc(item.feedback_text)}</div>
+      <div class="fr-meta">
+        <span class="fr-tag ${isPos ? 'fr-pos' : 'fr-neg'}">${item.sentiment_label}</span>
+        ${item.channel  ? `<span class="fr-tag fr-channel">${esc(item.channel)}</span>` : ''}
+        ${item.platform && item.platform !== item.channel
+          ? `<span class="fr-tag fr-platform">${esc(item.platform)}</span>` : ''}
+        <span class="fr-score">${scorePct}% confidence</span>
+      </div>`;
+    list.appendChild(row);
+  });
+
+  const btn = document.getElementById('load-more-btn');
+  const hasMore = (drawerPage + 1) * PAGE_SIZE < items.length;
+  btn.classList.toggle('hidden', !hasMore);
+}
+
+function loadMore() {
+  drawerPage++;
+  renderDrawerPage(getDrawerItems(), false);
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function sentColor(p) {
+  if (p >= 60) return 'var(--accent)';
+  if (p >= 40) return 'var(--amber)';
+  return 'var(--red)';
+}
+function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close drawer on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+</script>
+</body>
+</html>
